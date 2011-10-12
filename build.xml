@@ -1,0 +1,126 @@
+<project name="MyProject" default="all" basedir=".">
+    <description>
+        A simple build script.
+    </description>
+  <!-- set global properties for this build -->
+  <!-- set glassfish.home to point to glassfish installation  -->
+  <!--<property name="glassfish.home" location="/Users/acdesouza/java/glassfish3/"/>-->
+  <property file="build.properties" />
+
+  <property name="build" location="build"/>
+
+  <property name="testname" value="EJBWS" />
+
+  <property name="ejb" value="ejb"/>
+  <property name="appclient" value="appclient"/>
+  <property name="ws-generated-classes" value="${build}/${appclient}"/>
+
+  <target name="all">
+    <antcall target="clean"/>
+    <antcall target="build"/>
+    <antcall target="deploy"/>
+    <antcall target="run"/>
+    <antcall target="undeploy"/>
+    <antcall target="clean"/>
+  </target>
+
+  <target name="init">
+    <!-- Create the build directory structure -->
+    <mkdir dir="${build}/${ejb}"/>
+    <mkdir dir="${build}/${appclient}"/>
+  </target>
+
+  <target name="build" description="build" depends="init">
+    <antcall target="build-ejb"/>
+    <antcall target="build-appclient"/>
+  </target>
+
+  <target name="build-ejb"
+        description="Build ejb jar" >
+    <javac classpath="${glassfish.home}/glassfish/lib/javaee.jar"
+           srcdir="."
+           destdir="${build}/${ejb}"
+           includes="${testname}Bean.java"/>
+    <jar destfile="${build}/${testname}ejb.jar" basedir="${build}/${ejb}"/>
+  </target>
+
+  <target name="generate-ws-client" depends="init"
+          description="Criar as classes a partir do wsdl" >
+    <exec executable="wsimport"
+          failonerror="true"
+          vmlauncher="false">
+          <arg line="-d ${ws-generated-classes} http://localhost:8080/ConversorTemperaturaEJBService/ConversorTemperaturaEJB?wsdl" />
+    </exec>
+  </target>
+
+  <target name="build-appclient"
+          description="Build appclient jar" >
+    <antcall target="generate-ws-client"/>
+    <javac classpath="${glassfish.home}/glassfish/lib/javaee.jar"
+           srcdir="."
+           destdir="${build}/${appclient}"
+           includes="${testname}AppClient.java">
+           <classpath>
+             <pathelement path="${ws-generated-classes}"/>
+             <pathelement path="${glassfish.home}/glassfish/lib/javaee.jar"/>
+           </classpath>
+    </javac>
+    <jar destfile="${build}/${testname}appclient.jar"
+         basedir="${build}/${appclient}"
+         manifest="MANIFEST.MF"/>
+  </target>
+
+  <target name="glassfish-start"
+          description="Starts glassfish server" >
+    <exec executable="${glassfish.home}/glassfish/bin/startserv"
+          failonerror="true"
+          vmlauncher="false" />
+  </target>
+
+  <target name="glassfish-stop"
+          description="Starts glassfish server" >
+    <exec executable="${glassfish.home}/glassfish/bin/stopserv"
+          failonerror="true"
+          vmlauncher="false" />
+  </target>
+
+  <target name="deploy"
+          description="deploy">
+    <antcall target="create-resources"/>
+    <exec executable="${glassfish.home}/bin/asadmin"
+          failonerror="true"
+          vmlauncher="false">
+      <arg line="deploy ${build}/${testname}ejb.jar"/>
+    </exec>
+  </target>
+
+  <target name="undeploy"
+          description="undeploy">
+    <exec executable="${glassfish.home}/bin/asadmin"
+          failonerror="true"
+          vmlauncher="false">
+      <arg line="undeploy ${testname}ejb"/>
+    </exec>
+    <antcall target="delete-resources"/>
+  </target>
+
+  <target name="run" >
+    <antcall target="runappclient"/>
+  </target>
+
+  <target name="runappclient"
+          description="execute Application Client">
+    <exec executable="${glassfish.home}/glassfish/bin/appclient"
+          failonerror="true"
+          vmlauncher="false">
+      <arg line="-client ${build}/${testname}appclient.jar"/>
+    </exec>
+  </target>
+
+  <target name="clean"
+          description="clean up" >
+    <delete dir="${build}"/>
+  </target>
+
+
+</project>
