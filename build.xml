@@ -12,26 +12,32 @@
   <property name="testname" value="EJBWS" />
 
   <property name="ejb" value="ejb"/>
-  <property name="appclient" value="appclient"/>
-  <property name="ws-generated-classes" value="${build}/${appclient}"/>
+  <property name="ejb.classes" value="${build}/${ejb}"/>
+  <property name="ejb.jar.name" value="ejbws-server"/>
+  <property name="ejb.jar" value="${ejb.jar.name}.jar"/>
+  <property name="ejb.jar.path" value="${build}/${ejb.jar}"/>
+
+  <property name="ejb.client" value="appclient"/>
+  <property name="ejb.client.classes" value="${build}/${ejb.client}"/>
+  <property name="ws-generated-classes" value="${ejb.client.classes}"/>
+  <property name="ejb.client.jar.path" value="${build}/${ejb.client}.jar"/>
 
   <target name="all">
     <antcall target="clean"/>
     <antcall target="build"/>
-    <antcall target="deploy"/>
     <antcall target="run"/>
     <antcall target="undeploy"/>
     <antcall target="clean"/>
   </target>
 
   <target name="init">
-    <!-- Create the build directory structure -->
-    <mkdir dir="${build}/${ejb}"/>
-    <mkdir dir="${build}/${appclient}"/>
+    <mkdir dir="${ejb.classes}"/>
+    <mkdir dir="${ejb.client.classes}"/>
   </target>
 
   <target name="build" description="build" depends="init">
     <antcall target="build-ejb"/>
+    <antcall target="deploy"/>
     <antcall target="build-appclient"/>
   </target>
 
@@ -40,8 +46,26 @@
     <javac classpath="${glassfish.home}/glassfish/lib/javaee.jar"
            srcdir="."
            destdir="${build}/${ejb}"
-           includes="${testname}Bean.java"/>
-    <jar destfile="${build}/${testname}ejb.jar" basedir="${build}/${ejb}"/>
+           includes="componentes/model/*EJB.java"
+    />
+    <jar destfile="${ejb.jar.path}" basedir="${build}/${ejb}" />
+  </target>
+
+  <target name="deploy"
+          description="deploy">
+    <exec executable="${glassfish.home}/bin/asadmin"
+          failonerror="true"
+          vmlauncher="false">
+      <arg line="deploy ${ejb.jar.path}"/>
+    </exec>
+  </target>
+  <target name="undeploy"
+          description="undeploy">
+    <exec executable="${glassfish.home}/bin/asadmin"
+          failonerror="true"
+          vmlauncher="false">
+      <arg line="undeploy ${ejb.jar.name}"/>
+    </exec>
   </target>
 
   <target name="generate-ws-client" depends="init"
@@ -58,15 +82,14 @@
     <antcall target="generate-ws-client"/>
     <javac classpath="${glassfish.home}/glassfish/lib/javaee.jar"
            srcdir="."
-           destdir="${build}/${appclient}"
-           includes="${testname}AppClient.java">
+           destdir="${ejb.client.classes}"
+           includes="*AppClient.java">
            <classpath>
              <pathelement path="${ws-generated-classes}"/>
              <pathelement path="${glassfish.home}/glassfish/lib/javaee.jar"/>
            </classpath>
     </javac>
-    <jar destfile="${build}/${testname}appclient.jar"
-         basedir="${build}/${appclient}"
+    <jar destfile="${ejb.client.jar.path}" basedir="${build}/${ejb.client}"
          manifest="MANIFEST.MF"/>
   </target>
 
@@ -84,36 +107,16 @@
           vmlauncher="false" />
   </target>
 
-  <target name="deploy"
-          description="deploy">
-    <antcall target="create-resources"/>
-    <exec executable="${glassfish.home}/bin/asadmin"
-          failonerror="true"
-          vmlauncher="false">
-      <arg line="deploy ${build}/${testname}ejb.jar"/>
-    </exec>
-  </target>
-
-  <target name="undeploy"
-          description="undeploy">
-    <exec executable="${glassfish.home}/bin/asadmin"
-          failonerror="true"
-          vmlauncher="false">
-      <arg line="undeploy ${testname}ejb"/>
-    </exec>
-    <antcall target="delete-resources"/>
-  </target>
-
   <target name="run" >
     <antcall target="runappclient"/>
   </target>
 
   <target name="runappclient"
           description="execute Application Client">
-    <exec executable="${glassfish.home}/glassfish/bin/appclient"
+    <exec executable="java"
           failonerror="true"
           vmlauncher="false">
-      <arg line="-client ${build}/${testname}appclient.jar"/>
+          <arg line="-jar ${ejb.client.jar.path}"/>
     </exec>
   </target>
 
@@ -121,6 +124,4 @@
           description="clean up" >
     <delete dir="${build}"/>
   </target>
-
-
 </project>
